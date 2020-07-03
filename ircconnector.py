@@ -32,8 +32,8 @@ class IRCConnector(threading.Thread):
     def sendmsg(self, chan, msg):
         self.ircsock.send(('PRIVMSG ' + chan + ' :' + msg + '\n').encode())
 
-    def joinchan(self, chan):
-        self.ircsock.send(('JOIN ' + chan + '\n').encode())
+    def joinchan(self, chan, key=''):
+        self.ircsock.send(('JOIN ' + chan + ' ' + key + '\n').encode())
 
     def partchan(self, chan):
         self.ircsock.send(('PART ' + chan + '\n').encode())
@@ -50,6 +50,11 @@ class IRCConnector(threading.Thread):
         topic = (ircmsg.decode().split('\n')[1]).split(':')[2].strip('\n\r')
         return topic
 
+    def listmember(self, chan):
+        self.ircsock.send(('NAMES ' + chan + '\n').encode())
+        ircmsg = self.ircsock.recv(8192)
+        return ircmsg.decode().split('\n')[0].split(':')[2].strip('\n\r')
+
     def run(self):
         while True:
             ircmsg = self.ircsock.recv(8192)
@@ -60,7 +65,28 @@ class IRCConnector(threading.Thread):
             if message.isValid():
                 if message.msgType == 'PING':
                     self.ping()
+                elif message.msgType == 'INVITE':
+                    if message.target == self.botnick:
+                        self.joinchan(message.channel)
+                elif message.msgType == 'PRIVMSG':
+                    if 'KeyJoin' == message.msg[:7]:
+                        msg_split = message.msg.split()
+                        if len(msg_split) == 3:
+                            self.joinchan(msg_split[1], msg_split[2])
+
+                    if '옵뿌려!' in message.msg:
+                        members = self.listmember(message.channel).split(' ')
+                        for mem in members:
+                            if mem[0] != '@':
+                                self.ircsock.send(('MODE ' + message.channel + ' +o ' + mem + '\n').encode())
+
                 else:
                     if LOG_ENABLE:
                         print(message)
-                    self.msgQueue.put({'type': 'irc', 'content': message})
+                    if self.msgQueue is not None:
+                        self.msgQueue.put({'type': 'irc', 'content': message})
+
+
+if __name__ == '__main__':
+    connector = IRCConnector(None)
+    connector.run()

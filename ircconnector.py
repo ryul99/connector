@@ -3,9 +3,9 @@
 import socket
 import ssl
 import threading
-from connector.setting import server, port, botname, botnick
-from connector.setting import DEBUG, LOG_ENABLE
-from connector.ircmessage import IRCMessage
+from setting import server, port, botname, botnick
+from setting import DEBUG, LOG_ENABLE
+from ircmessage import IRCMessage
 from queue import Queue
 
 
